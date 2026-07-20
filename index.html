@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calepinage placo — Prototype HerculePro</title>
+<style>
+  :root{
+    --brand:#bc4333;
+    --brand-d:#9d3628;
+    --app:#f1f1f2;
+    --panel:#ffffff;
+    --input:#f7f7f7;
+    --ink:#2b2b2b;
+    --ink-soft:#6b6b6b;
+    --line:#dcdcdc;
+    --line-soft:#ececec;
+    /* technical drawing */
+    --plaque-fill:#eef3f7;
+    --plaque-stroke:#9db4c4;
+    --cut-fill:#fbeae7;
+    --cut-stroke:#bc4333;
+    --reuse-fill:#e8f3ea;
+    --reuse-stroke:#5a9367;
+    --open-stroke:#8a8a8a;
+    --good:#2f8a54;
+    --warn:#c98a1e;
+  }
+  *{box-sizing:border-box}
+  body,html{margin:0;padding:0}
+  #app{
+    font-family:Helvetica,Arial,Verdana,sans-serif;
+    font-weight:300;
+    color:var(--ink);
+    background:var(--app);
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    background:var(--brand);
+    color:#f7f7f7;
+    height:60px;
+    display:flex;align-items:center;
+    padding:0 22px;gap:14px;
+  }
+  .topbar h1{font-size:24px;font-weight:200;margin:0;letter-spacing:.2px}
+  .topbar .tag{
+    font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:1px;
+    background:rgba(255,255,255,.18);padding:3px 9px;border-radius:50px;
+  }
+  .topbar .spacer{flex:1}
+  .topbar .who{font-size:13px;opacity:.9}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 60px}
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:22px;align-items:start}
+  @media(max-width:880px){.layout{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);}
+  .panel h2{
+    font-size:13px;font-weight:400;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--ink-soft);margin:0;padding:13px 16px;border-bottom:1px solid var(--line-soft);
+  }
+  .panel .body{padding:16px}
+  .stack{display:flex;flex-direction:column;gap:13px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:12px;color:var(--ink-soft);letter-spacing:.2px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  input,select{
+    font-family:inherit;font-weight:300;font-size:14px;color:var(--ink);
+    background:var(--input);border:1px solid var(--line);border-radius:0;
+    padding:6px 8px;width:100%;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--brand)}
+  input[type=number]{font-variant-numeric:tabular-nums}
+
+  .btn{
+    font-family:inherit;font-size:13px;font-weight:400;cursor:pointer;
+    border-radius:7px;height:28px;padding:0 14px;border:1px solid var(--brand);
+    background:var(--brand);color:#f7f7f7;
+  }
+  .btn:hover{background:var(--brand-d);border-color:var(--brand-d)}
+  .btn.sec{background:transparent;color:var(--brand)}
+  .btn.sec:hover{background:#faeeec}
+  .btn.mini{height:24px;padding:0 9px;font-size:12px}
+  .btn.ghost{background:transparent;color:var(--ink-soft);border-color:var(--line)}
+  .btn.ghost:hover{color:var(--brand);border-color:var(--brand)}
+  .btn.top{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.55);color:#fff}
+  .btn.top:hover{background:rgba(255,255,255,.28);border-color:#fff}
+  .btn.top.sec{background:transparent}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#2b2b2b;color:#fff;
+    font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:300;padding:9px 16px;border-radius:7px;
+    opacity:0;transition:opacity .25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+
+  .maincol{display:flex;flex-direction:column;gap:22px}
+
+  /* summary cards */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--panel);border:1px solid var(--line);padding:13px 14px}
+  .card .k{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft)}
+  .card .v{font-size:24px;font-weight:200;margin-top:3px;font-variant-numeric:tabular-nums}
+  .card .u{font-size:12px;color:var(--ink-soft);margin-left:3px}
+  .card.accent .v{color:var(--brand)}
+
+  /* walls */
+  .wallhdr{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .wallhdr .name{font-size:15px;font-weight:400}
+  .wallhdr .dim{font-size:13px;color:var(--ink-soft)}
+  .wallhdr .spacer{flex:1}
+  .op-table{width:100%;border-collapse:collapse;margin-top:6px}
+  .op-table th{
+    text-align:left;font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:.4px;
+    color:var(--ink-soft);padding:5px 6px;border-bottom:1px solid var(--line-soft);
+  }
+  .op-table td{padding:4px 6px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  .op-table input,.op-table select{padding:4px 6px;font-size:13px}
+  .op-table .w-t{width:120px}
+  .op-table .w-n{width:78px}
+  .op-table td.rm{width:34px;text-align:center}
+  .lnk{color:var(--brand);cursor:pointer;font-size:13px;background:none;border:none;font-family:inherit}
+  .lnk:hover{text-decoration:underline}
+  .empty{color:var(--ink-soft);font-size:13px;font-style:italic;padding:6px}
+
+  .wallblock{border-top:1px solid var(--line-soft);padding:16px}
+  .wallblock:first-of-type{border-top:none}
+  .svgwrap{overflow-x:auto;margin-top:12px;background:#fafafa;border:1px solid var(--line-soft);padding:10px}
+  svg{display:block}
+  .svg-lbl{font-family:Helvetica,Arial,sans-serif;font-weight:300}
+  .metaline{display:flex;gap:18px;flex-wrap:wrap;margin-top:9px;font-size:13px;color:var(--ink-soft)}
+  .metaline b{color:var(--ink);font-weight:400;font-variant-numeric:tabular-nums}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);align-items:center}
+  .legend .sw{display:inline-flex;align-items:center;gap:6px}
+  .legend .box{width:14px;height:11px;border:1px solid #999;display:inline-block}
+
+  /* ceiling options */
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.opts{grid-template-columns:1fr}}
+  .opt{border:1px solid var(--line);padding:13px}
+  .opt.win{border-color:var(--good);box-shadow:inset 0 0 0 1px var(--good)}
+  .opt h4{margin:0 0 4px;font-size:14px;font-weight:400}
+  .opt .sub{font-size:12px;color:var(--ink-soft);margin-bottom:9px}
+  .opt .pill{display:inline-block;font-size:11px;font-weight:400;color:#fff;background:var(--good);border-radius:50px;padding:2px 9px;margin-left:6px}
+  .kv{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px dotted var(--line)}
+  .kv b{font-weight:400;font-variant-numeric:tabular-nums}
+
+  /* quant table */
+  .qt{width:100%;border-collapse:collapse}
+  .qt th{text-align:left;font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);padding:7px 10px;border-bottom:1px solid var(--line)}
+  .qt td{padding:6px 10px;border-bottom:1px solid var(--line-soft);font-size:14px}
+  .qt td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .qt tr.total td{font-weight:400;border-top:2px solid var(--line);background:#faf6f5}
+  .qt .muted{color:var(--ink-soft);font-size:12px}
+
+  .note{font-size:12px;color:var(--ink-soft);margin-top:10px;padding:10px 12px;background:#faf6f5;border-left:2px solid var(--brand)}
+  .foot{font-size:12px;color:var(--ink-soft);text-align:center;margin-top:26px}
+  details.params{margin-top:6px}
+  details.params summary{cursor:pointer;font-size:12px;color:var(--brand)}
+  .params .row3{margin-top:9px}
+  .badge-cut{color:var(--brand)}
+  .badge-reuse{color:var(--good)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>Calepinage placo</h1>
+    <span class="tag">Prototype</span>
+    <span class="spacer"></span>
+    <button class="btn top sec" id="btnImport" title="Charger un projet .json">⭱ Importer</button>
+    <button class="btn top" id="btnExport" title="Enregistrer le projet en .json">⭳ Exporter</button>
+    <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <div class="wrap">
+    <div class="layout">
+
+      <!-- ======= LEFT : inputs ======= -->
+      <div>
+        <div class="panel">
+          <h2>Écran 1 — Pièce</h2>
+          <div class="body stack">
+            <div class="field">
+              <label>Nom de la pièce</label>
+              <input id="roomName" type="text" value="Pièce type">
+            </div>
+            <div class="row3">
+              <div class="field"><label>Longueur (m)</label><input id="L" type="number" step="0.01" value="8.20"></div>
+              <div class="field"><label>Largeur (m)</label><input id="W" type="number" step="0.01" value="5.10"></div>
+              <div class="field"><label>Hauteur (m)</label><input id="H" type="number" step="0.01" value="2.50"></div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Type de plafond</label>
+                <select id="ceil">
+                  <option value="horizontal">Horizontal</option>
+                  <option value="monopente" selected>Monopente</option>
+                  <option value="double">Double pente</option>
+                </select>
+              </div>
+              <div class="field"><label>Angle pente (°)</label><input id="angle" type="number" step="1" value="20"></div>
+            </div>
+            <div class="row2">
+              <div class="field"><label>Plaque largeur (m)</label><input id="pw" type="number" step="0.01" value="1.20"></div>
+              <div class="field"><label>Plaque hauteur (m)</label><input id="ph" type="number" step="0.01" value="2.50"></div>
+            </div>
+            <div class="field">
+              <label>Sens de pose (murs)</label>
+              <select id="pose">
+                <option value="v" selected>Vertical</option>
+                <option value="h">Horizontal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:22px">
+          <h2>Options d'optimisation</h2>
+          <div class="body stack">
+            <div class="field">
+              <label>Marge d'approvisionnement (%)</label>
+              <input id="marge" type="number" step="1" value="10">
+            </div>
+            <div class="field">
+              <label>Chute minimale réutilisable (m)</label>
+              <input id="chuteMin" type="number" step="0.05" value="0.30">
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-soft)">
+              <input id="reuse" type="checkbox" checked style="width:auto"> Réutiliser les chutes entre murs
+            </label>
+            <details class="params">
+              <summary>Paramètres quantitatif</summary>
+              <div class="stack" style="margin-top:10px">
+                <div class="row2">
+                  <div class="field"><label>Vis / m²</label><input id="visM2" type="number" step="1" value="29"></div>
+                  <div class="field"><label>Enduit kg / ml joint</label><input id="enduitMl" type="number" step="0.05" value="0.45"></div>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:22px">
+          <h2>Ossature — DTU 25.41</h2>
+          <div class="body stack">
+            <div class="field">
+              <label>Entraxe montants (m)</label>
+              <select id="emMont">
+                <option value="0.60" selected>0,60 m — courant</option>
+                <option value="0.40">0,40 m — renforcé / grande hauteur</option>
+              </select>
+            </div>
+            <div class="row2">
+              <div class="field"><label>Entraxe fourrures (m)</label><input id="efFour" type="number" step="0.05" value="0.50"></div>
+              <div class="field"><label>Entraxe suspentes (m)</label><input id="esSusp" type="number" step="0.05" value="1.20"></div>
+            </div>
+            <div class="field"><label>Longueur barre / profilé (m)</label><input id="barre" type="number" step="0.10" value="3.00"></div>
+            <div class="note" style="margin-top:2px">
+              Entraxes par défaut courants du NF DTU 25.41. Les valeurs réelles sont des <b>maxima</b> dépendant
+              du type de plaque, de la hauteur et des charges — à ajuster selon la prescription.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======= RIGHT : results ======= -->
+      <div class="maincol">
+
+        <div class="cards" id="cards"></div>
+
+        <div class="panel">
+          <h2>Écran 2 — Murs &amp; ouvertures</h2>
+          <div class="body">
+            <div id="walls"></div>
+            <div class="note">
+              Placez chaque ouverture avec sa <b>distance depuis l'angle gauche</b> du mur (et la hauteur
+              d'allège pour les fenêtres). C'est cette position qui permet de dessiner le calepinage réel.
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Élévations &amp; calepinage des murs</h2>
+          <div class="body">
+            <div class="legend" style="margin-bottom:4px">
+              <span class="sw"><span class="box" style="background:var(--plaque-fill);border-color:var(--plaque-stroke)"></span> Plaque entière</span>
+              <span class="sw"><span class="box" style="background:var(--cut-fill);border-color:var(--cut-stroke)"></span> Plaque découpée</span>
+              <span class="sw"><span class="box" style="background:var(--reuse-fill);border-color:var(--reuse-stroke)"></span> Chute réutilisée</span>
+              <span class="sw"><span class="box" style="background:#fff;border-color:var(--open-stroke)"></span> Ouverture</span>
+              <span class="sw"><span class="box" style="background:#fff;border:1px dashed #bbb"></span> Plaque supprimée</span>
+            </div>
+            <div id="elevations"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Calepinage du plafond rampant</h2>
+          <div class="body">
+            <div id="ceilingInfo" style="font-size:14px;color:var(--ink-soft);margin-bottom:12px"></div>
+            <div class="opts" id="ceilOpts"></div>
+            <div class="note" id="ceilNote"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Ossature métallique — DTU 25.41</h2>
+          <div class="body">
+            <div class="opts">
+              <div>
+                <h4 style="margin:0 0 8px;font-size:14px;font-weight:400">Murs (rails + montants)</h4>
+                <div style="overflow-x:auto"><table class="qt" id="ossWalls"></table></div>
+              </div>
+              <div>
+                <h4 style="margin:0 0 8px;font-size:14px;font-weight:400">Plafond rampant (fourrures + suspentes)</h4>
+                <div style="overflow-x:auto"><table class="qt" id="ossCeil"></table></div>
+              </div>
+            </div>
+            <div class="note" id="ossNote"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Quantitatif estimatif</h2>
+          <div class="body">
+            <div style="overflow-x:auto">
+              <table class="qt" id="quant"></table>
+            </div>
+            <div class="note">
+              Le comptage <b>placement réel</b> découpe chaque plaque autour des ouvertures et calepine le plafond
+              par rangées : les morceaux récupérés (dont la baie pleine hauteur) alimentent un <b>stock de chutes
+              partagé murs↔plafond</b> et remplacent des plaques neuves ; une bande entièrement dans une ouverture
+              n'est pas comptée. La ligne « surface + marge » reste la commande de sécurité — le total retenu prend
+              le maximum des deux.
+            </div>
+          </div>
+        </div>
+
+        <div class="foot">Prototype de calepinage — saisie manuelle, sans import de plan. Phase 2 : PDF / DWG / BIM.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){return document.getElementById(id);};
+  var WALL_KEYS = ["A","B","C","D"];
+
+  // opening state per wall — prefilled with a sensible default distribution
+  var openings = {
+    A:[{type:"Porte",   w:0.83,h:2.04,d:1.00,al:0.00},
+       {type:"Fenêtre", w:1.05,h:1.25,d:4.20,al:1.00}],
+    B:[{type:"Fenêtre", w:1.05,h:1.25,d:1.90,al:1.00}],
+    C:[{type:"Baie",    w:1.05,h:2.50,d:2.60,al:0.00},
+       {type:"Porte",   w:0.83,h:2.04,d:6.00,al:0.00}],
+    D:[]
+  };
+
+  function num(id){var v=parseFloat($(id).value);return isNaN(v)?0:v;}
+  function fmt(n,d){d=(d==null)?2:d;return n.toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});}
+  function fmt0(n){return Math.round(n).toLocaleString('fr-FR');}
+
+  function wallLen(k){var L=num('L'),W=num('W');return (k==='A'||k==='C')?L:W;}
+
+  // ---------- calepinage engine (vertical pose) ----------
+  // returns placements + chute stock updates
+  function calepineWall(len, H, pw, ph, stock, useReuse, chuteMin){
+    var placements=[], x=0, i=0, EPS=1e-6;
+    // vertical pose assumes ph >= H (one row). If ph<H we still lay one row and flag.
+    while(x < len-EPS){
+      var remaining = len - x;
+      var stripW = Math.min(pw, remaining);
+      var isCut = stripW < pw - EPS;
+      var source = 'new';
+      if(isCut && useReuse){
+        // find smallest chute that fits width & height
+        var best=-1;
+        for(var s=0;s<stock.length;s++){
+          if(stock[s].w >= stripW-EPS && stock[s].h >= H-EPS){
+            if(best<0 || stock[s].w < stock[best].w) best=s;
+          }
+        }
+        if(best>=0){
+          source='reuse';
+          var leftover = stock[best].w - stripW;
+          stock.splice(best,1);
+          if(leftover > chuteMin) stock.push({w:leftover,h:H,from:'chute'});
+        }
+      }
+      if(isCut && source==='new'){
+        var off = pw - stripW;
+        if(off > chuteMin) stock.push({w:off,h:H,from:'coupe'});
+      }
+      placements.push({x:x,w:stripW,isCut:isCut,source:source,n:++i});
+      x += stripW;
+    }
+    return placements;
+  }
+
+  // ---------- SVG elevation ----------
+  function drawWall(k, len, H, pw, placements, ops){
+    var PXW=680, mLeft=8, mRight=8, mTop=26, mBot=42;
+    var scale = (PXW)/len;
+    var wpx=len*scale, hpx=H*scale;
+    var W = wpx+mLeft+mRight, Hs=hpx+mTop+mBot;
+    var s='<svg class="svg-lbl" width="'+W+'" height="'+Hs+'" viewBox="0 0 '+W+' '+Hs+'">';
+    // hatch pattern for openings
+    s+='<defs><pattern id="hatch'+k+'" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'
+      +'<rect width="7" height="7" fill="#ffffff"/><line x1="0" y1="0" x2="0" y2="7" stroke="#d8d8d8" stroke-width="1.4"/></pattern></defs>';
+    var ox=mLeft, oy=mTop;
+    // plaques
+    placements.forEach(function(p){
+      var px=ox+p.x*scale, wpx2=p.w*scale;
+      if(p.source==='void'){   // bande entièrement dans une ouverture : pas de plaque
+        s+='<rect x="'+px.toFixed(1)+'" y="'+oy+'" width="'+wpx2.toFixed(1)+'" height="'+hpx.toFixed(1)+'" fill="none" stroke="#cccccc" stroke-width="1" stroke-dasharray="4 4"/>';
+        return;
+      }
+      var fill = p.source==='reuse' ? 'var(--reuse-fill)' : (p.isCut ? 'var(--cut-fill)' : 'var(--plaque-fill)');
+      var stroke = p.source==='reuse' ? 'var(--reuse-stroke)' : (p.isCut ? 'var(--cut-stroke)' : 'var(--plaque-stroke)');
+      s+='<rect x="'+px.toFixed(1)+'" y="'+oy+'" width="'+wpx2.toFixed(1)+'" height="'+hpx.toFixed(1)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1"/>';
+      // number
+      s+='<text x="'+(px+wpx2/2).toFixed(1)+'" y="'+(oy+hpx/2-4).toFixed(1)+'" font-size="12" fill="#555" text-anchor="middle">'+p.n+'</text>';
+      // width label
+      s+='<text x="'+(px+wpx2/2).toFixed(1)+'" y="'+(oy+hpx/2+11).toFixed(1)+'" font-size="10" fill="#888" text-anchor="middle">'+fmt(p.w)+'</text>';
+    });
+    // openings
+    ops.forEach(function(o){
+      var w=o.w*scale, h=o.h*scale;
+      var xx=ox+o.d*scale;
+      // y from floor: allège
+      var yy=oy+hpx-(o.al+o.h)*scale;
+      s+='<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="url(#hatch'+k+')" stroke="var(--open-stroke)" stroke-width="1.4"/>';
+      s+='<text x="'+(xx+w/2).toFixed(1)+'" y="'+(yy+h/2-2).toFixed(1)+'" font-size="10.5" fill="#555" text-anchor="middle">'+o.type+'</text>';
+      s+='<text x="'+(xx+w/2).toFixed(1)+'" y="'+(yy+h/2+11).toFixed(1)+'" font-size="9.5" fill="#888" text-anchor="middle">'+fmt(o.w)+'×'+fmt(o.h)+'</text>';
+    });
+    // baseline + dims
+    var by=oy+hpx;
+    s+='<line x1="'+ox+'" y1="'+(by+10)+'" x2="'+(ox+wpx)+'" y2="'+(by+10)+'" stroke="#bbb" stroke-width="1"/>';
+    s+='<text x="'+(ox+wpx/2)+'" y="'+(by+26)+'" font-size="11.5" fill="#666" text-anchor="middle">Mur '+k+' — '+fmt(len)+' m × '+fmt(H)+' m</text>';
+    // left height tick
+    s+='<text x="'+(ox-2)+'" y="'+(oy+12)+'" font-size="10" fill="#999">↕ '+fmt(H)+'</text>';
+    s+='</svg>';
+    return s;
+  }
+
+  // ---------- opening table ----------
+  function renderWalls(){
+    var html='';
+    WALL_KEYS.forEach(function(k){
+      var len=wallLen(k), H=num('H');
+      var ops=openings[k];
+      html+='<div class="wallblock">';
+      html+='<div class="wallhdr"><span class="name">Mur '+k+'</span>'
+          +'<span class="dim">'+fmt(len)+' m × '+fmt(H)+' m</span>'
+          +'<span class="spacer"></span>'
+          +'<button class="btn mini sec" data-add="'+k+'">+ Ouverture</button></div>';
+      if(ops.length===0){
+        html+='<div class="empty">Aucune ouverture sur ce mur.</div>';
+      } else {
+        html+='<table class="op-table"><thead><tr>'
+            +'<th>Type</th><th>Larg. (m)</th><th>Haut. (m)</th><th>Dist. angle G (m)</th><th>Allège (m)</th><th></th>'
+            +'</tr></thead><tbody>';
+        ops.forEach(function(o,idx){
+          html+='<tr>'
+            +'<td class="w-t"><select data-k="'+k+'" data-i="'+idx+'" data-f="type">'
+              +opt('Porte',o.type)+opt('Fenêtre',o.type)+opt('Baie',o.type)+opt('Réservation',o.type)+'</select></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.w+'" data-k="'+k+'" data-i="'+idx+'" data-f="w"></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.h+'" data-k="'+k+'" data-i="'+idx+'" data-f="h"></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.d+'" data-k="'+k+'" data-i="'+idx+'" data-f="d"></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.al+'" data-k="'+k+'" data-i="'+idx+'" data-f="al"></td>'
+            +'<td class="rm"><button class="lnk" data-rm="'+k+'" data-i="'+idx+'" title="Supprimer">✕</button></td>'
+            +'</tr>';
+        });
+        html+='</tbody></table>';
+      }
+      html+='</div>';
+    });
+    $('walls').innerHTML=html;
+  }
+  function opt(v,cur){return '<option'+(v===cur?' selected':'')+'>'+v+'</option>';}
+
+  // ---------- ceiling ----------
+  function ceilingData(){
+    var L=num('L'),W=num('W'),ang=num('angle'),type=$('ceil').value;
+    var pw=num('pw'),ph=num('ph');
+    var cosf=Math.cos(ang*Math.PI/180);
+    var rampantSpan = (type==='horizontal')? W : W/cosf;
+    var area = L*rampantSpan;
+    // rectangle L x rampantSpan tiled two ways with plaque ph x pw
+    function tile(dimAlongL, dimAlongSpan){
+      var cols=Math.ceil(L/dimAlongL);
+      var rows=Math.ceil(rampantSpan/dimAlongSpan);
+      var plaques=cols*rows;
+      var waste=plaques*pw*ph - area;
+      // joints: internal vertical (cols-1) over full span + internal horizontal (rows-1) over full L
+      var joints=(cols-1)*rampantSpan + (rows-1)*L;
+      var smallCuts = ((L/dimAlongL)%1>0.001?rows:0) + ((rampantSpan/dimAlongSpan)%1>0.001?cols:0);
+      return {cols:cols,rows:rows,plaques:plaques,waste:waste,joints:joints,smallCuts:smallCuts};
+    }
+    var A=tile(ph,pw); // 2.50 along L, 1.20 along span
+    var B=tile(pw,ph); // 1.20 along L, 2.50 along span
+    return {L:L,rampantSpan:rampantSpan,area:area,type:type,ang:ang,pw:pw,ph:ph,A:A,B:B};
+  }
+
+  // ---------- ceiling tiler with shared chute reuse ----------
+  // rangées le long de rowLen, sur une largeur totalWidth ; plaque plen (long) × pwid (large)
+  function tileCeiling(rowLen, totalWidth, plen, pwid, stock, useReuse, chuteMin){
+    var EPS=1e-6, newP=0, reuse=0, rows=0, acc=0;
+    while(acc < totalWidth-EPS){
+      var rw=Math.min(pwid, totalWidth-acc), partial=rw<pwid-EPS; rows++;
+      var x=0;
+      while(x < rowLen-EPS){
+        var need=Math.min(plen, rowLen-x), cutLen=need<plen-EPS, isCut=cutLen||partial;
+        var source='new';
+        if(isCut && useReuse){
+          var best=-1, bestA=Infinity;
+          for(var s=0;s<stock.length;s++){
+            if(stock[s].w>=need-EPS && stock[s].h>=rw-EPS){
+              var a=stock[s].w*stock[s].h; if(a<bestA){bestA=a;best=s;}
+            }
+          }
+          if(best>=0){
+            source='reuse'; var cw=stock[best].w, ch=stock[best].h; stock.splice(best,1);
+            if(cw-need>chuteMin && rw>chuteMin) stock.push({w:cw-need,h:rw,from:'chute'});
+            if(ch-rw>chuteMin && need>chuteMin) stock.push({w:need,h:ch-rw,from:'chute'});
+          }
+        }
+        if(source==='new'){
+          newP++;
+          if(isCut){
+            if(plen-need>chuteMin && rw>chuteMin) stock.push({w:plen-need,h:rw,from:'coupe'});
+            if(pwid-rw>chuteMin && need>chuteMin) stock.push({w:need,h:pwid-rw,from:'coupe'});
+          }
+        } else reuse++;
+        x+=need;
+      }
+      acc+=rw;
+    }
+    return {newP:newP, reuse:reuse, rows:rows};
+  }
+
+  // ---------- main compute ----------
+  function compute(){
+    var L=num('L'),W=num('W'),H=num('H'),pw=num('pw'),ph=num('ph');
+    var marge=num('marge'),chuteMin=num('chuteMin');
+    var useReuse=$('reuse').checked;
+    var visM2=num('visM2'), enduitMl=num('enduitMl');
+
+    // surfaces
+    var perim=2*(L+W);
+    var brut=perim*H;
+    var surfOuv=0;
+    WALL_KEYS.forEach(function(k){openings[k].forEach(function(o){surfOuv+=o.w*o.h;});});
+    var net=brut-surfOuv;
+    var cd=ceilingData();
+    var ceilArea=cd.area;
+    var totalNet=net+ceilArea;
+    var plaqueArea=pw*ph;
+    var totalMarge=totalNet*(1+marge/100);
+    var estPlaques=Math.ceil(totalMarge/plaqueArea);
+
+    // per-wall calepinage — 2 passes, avec soustraction réelle des ouvertures
+    var EPS=1e-6, stock=[];
+    // Phase 1 : positions des plaques (bandes) + chutes issues des découpes d'ouvertures
+    var wallStrips={};
+    WALL_KEYS.forEach(function(k){
+      var len=wallLen(k), strips=[], x=0, i=0;
+      while(x<len-EPS){ var w=Math.min(pw,len-x); strips.push({x:x,w:w,isCut:w<pw-EPS,n:++i,removed:0,hasOpening:false}); x+=w; }
+      wallStrips[k]=strips;
+      openings[k].forEach(function(o){
+        strips.forEach(function(st){
+          var ox0=Math.max(st.x,o.d), ox1=Math.min(st.x+st.w, o.d+o.w), ow=ox1-ox0;
+          if(ow>EPS){
+            var oh=Math.min(o.al+o.h,H)-Math.max(o.al,0);   // hauteur découpée dans le mur
+            if(oh>EPS){
+              st.removed += ow*oh; st.hasOpening=true;
+              if(ow>chuteMin && oh>chuteMin) stock.push({w:ow,h:oh,from:'ouverture'}); // morceau récupéré
+            }
+          }
+        });
+      });
+    });
+    // Phase 2 : pose des plaques, réutilisation des chutes (dont morceaux d'ouvertures pleine hauteur)
+    var wallResults={}, wallNew=0, wallReuse=0, wallElim=0, cutoutCount=0, jointLen=0;
+    WALL_KEYS.forEach(function(k){
+      var placements=[];
+      wallStrips[k].forEach(function(st){
+        var area=st.w*H;
+        if(st.hasOpening) cutoutCount++;                     // bandes traversées par une ouverture
+        if(st.removed>0 && (area-st.removed)<1e-3){          // bande entièrement dans une ouverture
+          placements.push({x:st.x,w:st.w,isCut:st.isCut,source:'void',n:st.n,hasOpening:true});
+          wallElim++; return;
+        }
+        var source='new';
+        if(st.isCut && useReuse){
+          var best=-1;
+          for(var s=0;s<stock.length;s++){ if(stock[s].w>=st.w-EPS && stock[s].h>=H-EPS){ if(best<0||stock[s].w<stock[best].w) best=s; } }
+          if(best>=0){ source='reuse'; var lo=stock[best].w-st.w; stock.splice(best,1); if(lo>chuteMin) stock.push({w:lo,h:H,from:'chute'}); }
+        }
+        if(st.isCut && source==='new'){ var off=pw-st.w; if(off>chuteMin) stock.push({w:off,h:H,from:'coupe'}); }
+        placements.push({x:st.x,w:st.w,isCut:st.isCut,source:source,n:st.n,hasOpening:st.hasOpening});
+        if(source==='reuse') wallReuse++; else wallNew++;
+      });
+      wallResults[k]=placements;
+      var solid=placements.filter(function(p){return p.source!=='void';}).length;
+      jointLen += Math.max(0,solid-1)*H;
+    });
+
+    // ceiling placement — évalue les 2 orientations sur une COPIE du stock, retient la meilleure,
+    // puis commet le placement retenu dans le stock partagé (réemploi mur↔plafond)
+    function cloneStock(st){return st.map(function(c){return {w:c.w,h:c.h,from:c.from};});}
+    var stA=cloneStock(stock), stB=cloneStock(stock);
+    var resA=tileCeiling(cd.L, cd.rampantSpan, ph, pw, stA, useReuse, chuteMin);
+    var resB=tileCeiling(cd.rampantSpan, cd.L, ph, pw, stB, useReuse, chuteMin);
+    var best = (resA.newP < resB.newP) ? 'A' : (resB.newP < resA.newP ? 'B' : (cd.A.joints<=cd.B.joints?'A':'B'));
+    var chosen = best==='A'?resA:resB;
+    stock = best==='A'?stA:stB;                  // commit du placement retenu
+    var ceilPlaques = chosen.newP, ceilReuse = chosen.reuse;
+    var ceilJoints = cd[best].joints;
+    var optA={cols:cd.A.cols,rows:cd.A.rows,plaques:resA.newP,reuse:resA.reuse,joints:cd.A.joints,smallCuts:cd.A.smallCuts};
+    var optB={cols:cd.B.cols,rows:cd.B.rows,plaques:resB.newP,reuse:resB.reuse,joints:cd.B.joints,smallCuts:cd.B.smallCuts};
+
+    // placement-based total plaques
+    var placedTotal = wallNew + ceilPlaques;
+    var totalJoints = jointLen + ceilJoints;
+
+    // chute résiduelle réelle = stock final après murs + plafond
+    var chutesLeft=stock.slice();
+    var chuteSurf=0; chutesLeft.forEach(function(c){chuteSurf+=c.w*c.h;});
+
+    // ---------- ossature métallique (NF DTU 25.41) ----------
+    var emont=num('emMont'), efour=num('efFour'), esusp=num('esSusp'), barre=num('barre');
+    if(emont<=0) emont=0.60; if(efour<=0) efour=0.50; if(esusp<=0) esusp=1.20; if(barre<=0) barre=3.00;
+
+    // --- murs : rails haut+bas, montants à l'entraxe, renforts d'ouvertures ---
+    var railMl=0, montCount=0, montMl=0, renfMontCount=0, renfMontMl=0, renfRailMl=0, nOuv=0;
+    WALL_KEYS.forEach(function(k){
+      var len=wallLen(k);
+      railMl += 2*len;                       // rail bas + rail haut
+      var nm = Math.floor(len/emont)+1;      // montants courants (bords compris)
+      montCount += nm; montMl += nm*H;
+      openings[k].forEach(function(o){
+        nOuv++;
+        renfMontCount += 2; renfMontMl += 2*H;                 // 2 montants de chevêtre (jambages)
+        renfRailMl += (o.type==='Fenêtre'?2:1)*o.w;            // linteau (+ allège pour fenêtres)
+      });
+    });
+    var totMontCount=montCount+renfMontCount, totMontMl=montMl+renfMontMl, totRailMl=railMl+renfRailMl;
+    var perBar=Math.max(1,Math.floor(barre/H));                // montants débités dans une barre
+    var montBars=Math.ceil(totMontCount/perBar);
+    var railBars=Math.ceil(totRailMl/barre);
+
+    // --- plafond rampant : fourrures + suspentes + cornières périphériques ---
+    var span=cd.rampantSpan, Lc=cd.L;
+    var nFour=Math.floor(span/efour)+1;                        // fourrures dans le sens de la longueur
+    var fourMl=nFour*Lc;
+    var suspPerF=Math.floor(Lc/esusp)+1;
+    var suspCount=nFour*suspPerF;
+    var cornMl=2*(Lc+span);                                    // cornière périphérique
+    var fourBars=Math.ceil(fourMl/barre);
+    var eclisses=nFour*Math.max(0,Math.ceil(Lc/barre)-1);      // raccords de fourrure
+
+    // quant
+    var vis=Math.round(totalMarge*visM2);
+    var enduit=totalJoints*enduitMl;
+
+    render({
+      L:L,W:W,H:H,pw:pw,ph:ph,plaqueArea:plaqueArea,
+      brut:brut,surfOuv:surfOuv,net:net,ceilArea:ceilArea,totalNet:totalNet,
+      marge:marge,totalMarge:totalMarge,estPlaques:estPlaques,
+      wallResults:wallResults,wallNew:wallNew,wallReuse:wallReuse,wallElim:wallElim,cutoutCount:cutoutCount,jointLen:jointLen,
+      chutesLeft:chutesLeft,cd:cd,best:best,ceilPlaques:ceilPlaques,ceilReuse:ceilReuse,ceilJoints:ceilJoints,optA:optA,optB:optB,
+      placedTotal:placedTotal,totalJoints:totalJoints,chuteSurf:chuteSurf,vis:vis,enduit:enduit,
+      emont:emont,efour:efour,esusp:esusp,barre:barre,nOuv:nOuv,
+      railMl:railMl,montCount:montCount,renfMontCount:renfMontCount,renfRailMl:renfRailMl,
+      totMontCount:totMontCount,totMontMl:totMontMl,totRailMl:totRailMl,montBars:montBars,railBars:railBars,
+      span:span,nFour:nFour,fourMl:fourMl,suspCount:suspCount,cornMl:cornMl,fourBars:fourBars,eclisses:eclisses
+    });
+  }
+
+  function render(r){
+    // cards
+    $('cards').innerHTML=
+      card('Surface nette',fmt(r.totalNet),'m²',false)+
+      card('Plaques (placement)',fmt0(r.placedTotal),'u',true)+
+      card('Plaques (surf. +'+r.marge+'%)',fmt0(r.estPlaques),'u',false)+
+      card('Chutes estimées',fmt(r.chuteSurf),'m²',false);
+
+    // elevations
+    var eh='';
+    WALL_KEYS.forEach(function(k){
+      var len=wallLen(k), pl=r.wallResults[k];
+      var nNew=pl.filter(function(p){return p.source==='new';}).length;
+      var nReuse=pl.filter(function(p){return p.source==='reuse';}).length;
+      var nVoid=pl.filter(function(p){return p.source==='void';}).length;
+      var nCut=pl.filter(function(p){return p.isCut && p.source!=='void';}).length;
+      var nOp=pl.filter(function(p){return p.hasOpening && p.source!=='void';}).length;
+      eh+='<div class="wallblock">';
+      eh+=drawWall(k,len,r.H,r.pw,pl,openings[k]);
+      eh+='<div class="metaline">'
+        +'<span>Neuves : <b>'+nNew+'</b></span>'
+        +'<span class="badge-reuse">Chutes réutilisées : <b>'+nReuse+'</b></span>'
+        +'<span class="badge-cut">Découpées : <b>'+nCut+'</b></span>'
+        +'<span>Percées d\'ouverture : <b>'+nOp+'</b></span>'
+        +(nVoid>0?'<span>Supprimées (pleine ouverture) : <b>'+nVoid+'</b></span>':'')
+        +'</div></div>';
+    });
+    $('elevations').innerHTML=eh;
+
+    // ceiling
+    var cd=r.cd;
+    $('ceilingInfo').innerHTML='Pente sur la largeur — longueur réelle du rampant : <b>'+fmt(cd.rampantSpan)
+      +' m</b> ('+fmt(cd.L)+' × '+fmt(cd.rampantSpan)+' m = <b>'+fmt(cd.area)+' m²</b>), plaques '+fmt(cd.ph)+'×'+fmt(cd.pw)+' m.';
+    $('ceilOpts').innerHTML=
+      ceilOpt('A','Plaques dans le sens des '+fmt(cd.L)+' m',r.optA,r.best==='A')+
+      ceilOpt('B','Plaques dans le sens du rampant',r.optB,r.best==='B');
+    $('ceilNote').innerHTML='Chaque orientation est calepinée par rangées avec réemploi des chutes (stock partagé avec les murs). '
+      +'Option retenue : <b>Option '+r.best+'</b> — <b>'+r.ceilPlaques+' plaques neuves</b> + '+r.ceilReuse+' réemplois.';
+
+    // ossature — murs
+    var ow='<tbody>';
+    ow+=qrow('Rails haut + bas',fmt(r.railMl)+' ml','périmètre × 2');
+    ow+=qrow('Montants courants',fmt0(r.montCount)+' u','entraxe '+fmt(r.emont)+' m');
+    ow+=qrow('Renfort ouvertures',fmt0(r.renfMontCount)+' mont.','2 jambages / ouv. ('+r.nOuv+')');
+    ow+=qrow('Rails linteaux / allèges',fmt(r.renfRailMl)+' ml','encadrement ouvertures');
+    ow+='<tr class="total"><td>Montants — total</td><td class="num">'+fmt0(r.totMontCount)+' u</td><td class="muted">'+fmt(r.totMontMl)+' ml • '+r.montBars+' barres de '+fmt(r.barre)+' m</td></tr>';
+    ow+='<tr class="total"><td>Rails — total</td><td class="num">'+fmt(r.totRailMl)+' ml</td><td class="muted">'+r.railBars+' barres de '+fmt(r.barre)+' m</td></tr>';
+    ow+='</tbody>';
+    $('ossWalls').innerHTML=ow;
+
+    // ossature — plafond
+    var oc='<tbody>';
+    oc+=qrow('Fourrures',fmt0(r.nFour)+' × '+fmt(r.L)+' m','entraxe '+fmt(r.efour)+' m');
+    oc+=qrow('Linéaire fourrures',fmt(r.fourMl)+' ml',r.fourBars+' barres de '+fmt(r.barre)+' m');
+    oc+=qrow('Suspentes',fmt0(r.suspCount)+' u','entraxe '+fmt(r.esusp)+' m');
+    oc+=qrow('Éclisses de raccord',fmt0(r.eclisses)+' u','fourrures > '+fmt(r.barre)+' m');
+    oc+='<tr class="total"><td>Cornières périphériques</td><td class="num">'+fmt(r.cornMl)+' ml</td><td class="muted">pourtour plafond</td></tr>';
+    oc+='</tbody>';
+    $('ossCeil').innerHTML=oc;
+    $('ossNote').innerHTML='Ossature estimée selon la logique du <b>NF DTU 25.41</b> : tracés périphériques (rails haut/bas), '
+      +'montants verticaux à l\'entraxe avec chevêtre de renfort autour des ouvertures, et plafond suspendu '
+      +'fourrures + suspentes + cornière de rive. Entraxes paramétrables ci-contre.';
+
+    // quant table
+    var q='<thead><tr><th>Élément</th><th style="text-align:right">Quantité</th><th>Unité / base</th></tr></thead><tbody>';
+    q+=qrow('Plaques '+fmt(r.ph)+'×'+fmt(r.pw)+' m — placement réel',fmt0(r.placedTotal),'murs '+r.wallNew+' + plafond '+r.ceilPlaques);
+    q+=qrow('Plaques — surface + '+r.marge+'% (commande sécurité)',fmt0(r.estPlaques),fmt(r.totalMarge)+' m² ÷ '+fmt(r.plaqueArea)+' m²');
+    q+=qrow('Surface brute murs',fmt(r.brut),'m²');
+    q+=qrow('Surface ouvertures',fmt(r.surfOuv),'m²');
+    q+=qrow('Surface nette murs',fmt(r.net),'m²');
+    q+=qrow('Surface plafond rampant',fmt(r.ceilArea),'m²');
+    q+=qrow('Plaques percées (ouvertures découpées)',fmt0(r.cutoutCount),'bandes');
+    q+=qrow('Plaques supprimées (bande pleine ouverture)',fmt0(r.wallElim),'non commandées');
+    q+=qrow('Chutes réutilisées (murs)',fmt0(r.wallReuse),'pièces (dont morceaux d\'ouvertures)');
+    q+=qrow('Surface de chutes résiduelles',fmt(r.chuteSurf),'m² (indicatif)');
+    q+=qrow('Longueur de joints',fmt(r.totalJoints),'ml');
+    q+=qrow('Rails (haut/bas + linteaux)',fmt(r.totRailMl)+' ml',r.railBars+' barres de '+fmt(r.barre)+' m');
+    q+=qrow('Montants (courants + renforts)',fmt0(r.totMontCount)+' u',r.montBars+' barres • entraxe '+fmt(r.emont)+' m');
+    q+=qrow('Fourrures plafond',fmt(r.fourMl)+' ml',r.nFour+' u • entraxe '+fmt(r.efour)+' m');
+    q+=qrow('Suspentes plafond',fmt0(r.suspCount)+' u','entraxe '+fmt(r.esusp)+' m');
+    q+=qrow('Cornières périphériques',fmt(r.cornMl)+' ml','plafond rampant');
+    q+=qrow('Vis',fmt0(r.vis),$('visM2').value+' vis/m²');
+    q+=qrow('Bandes à joint',fmt(r.totalJoints*1.05),'ml (+5%)');
+    q+=qrow('Enduit',fmt(r.enduit),'kg ('+$('enduitMl').value+' kg/ml)');
+    q+='<tr class="total"><td>Total plaques commandées</td><td class="num">'+fmt0(r.estPlaques)
+      +'</td><td class="muted">retenu : max(placement, surface+marge)</td></tr>';
+    q+='</tbody>';
+    $('quant').innerHTML=q;
+  }
+
+  function card(k,v,u,accent){
+    return '<div class="card'+(accent?' accent':'')+'"><div class="k">'+k+'</div>'
+      +'<div class="v">'+v+'<span class="u">'+u+'</span></div></div>';
+  }
+  function qrow(a,b,c){return '<tr><td>'+a+'</td><td class="num">'+b+'</td><td class="muted">'+(c||'')+'</td></tr>';}
+  function ceilOpt(id,title,o,win){
+    return '<div class="opt'+(win?' win':'')+'">'
+      +'<h4>Option '+id+(win?'<span class="pill">Retenue</span>':'')+'</h4>'
+      +'<div class="sub">'+title+'</div>'
+      +kv('Grille',o.cols+' × '+o.rows)
+      +kv('Plaques neuves',o.plaques)
+      +kv('Réemplois de chutes',o.reuse)
+      +kv('Joints',fmt(o.joints)+' ml')
+      +kv('Petites découpes',o.smallCuts)
+      +'</div>';
+  }
+  function kv(k,v){return '<div class="kv"><span>'+k+'</span><b>'+v+'</b></div>';}
+
+  // ---------- export / import projet ----------
+  var STATE_FIELDS=['roomName','L','W','H','ceil','angle','pw','ph','pose','marge','chuteMin','visM2','enduitMl','emMont','efFour','esSusp','barre'];
+  function gatherState(){
+    var st={_format:'herculepro-calepinage', _version:1, savedAt:new Date().toISOString(), fields:{}, reuse:$('reuse').checked, openings:{}};
+    STATE_FIELDS.forEach(function(id){ st.fields[id]=$(id).value; });
+    WALL_KEYS.forEach(function(k){ st.openings[k]=openings[k].map(function(o){return {type:o.type,w:o.w,h:o.h,d:o.d,al:o.al};}); });
+    return st;
+  }
+  function slug(s){return (s||'projet').toString().trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'projet';}
+  function toast(msg){var el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove('show');},2600);}
+
+  function exportProject(){
+    var data=JSON.stringify(gatherState(),null,2);
+    var blob=new Blob([data],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download='calepinage-'+slug($('roomName').value)+'-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    toast('Projet exporté');
+  }
+
+  function applyState(st){
+    if(!st || st._format!=='herculepro-calepinage') throw new Error('format');
+    STATE_FIELDS.forEach(function(id){ if(st.fields && st.fields[id]!=null) $(id).value=st.fields[id]; });
+    if(typeof st.reuse==='boolean') $('reuse').checked=st.reuse;
+    WALL_KEYS.forEach(function(k){
+      var arr=(st.openings && st.openings[k])||[];
+      openings[k]=arr.map(function(o){return {
+        type:['Porte','Fenêtre','Baie','Réservation'].indexOf(o.type)>=0?o.type:'Fenêtre',
+        w:+o.w||0, h:+o.h||0, d:+o.d||0, al:+o.al||0
+      };});
+    });
+    refresh();
+  }
+  function importProject(file){
+    var reader=new FileReader();
+    reader.onload=function(){
+      try{ applyState(JSON.parse(reader.result)); toast('Projet importé : '+($('roomName').value||'sans nom')); }
+      catch(err){ toast('Fichier illisible — ce n\'est pas un projet de calepinage valide.'); }
+    };
+    reader.onerror=function(){ toast('Lecture du fichier impossible.'); };
+    reader.readAsText(file);
+  }
+
+  // ---------- events ----------
+  function refresh(){ renderWalls(); compute(); }
+
+  document.addEventListener('input',function(e){
+    var t=e.target;
+    if(t.dataset && t.dataset.k){
+      var o=openings[t.dataset.k][+t.dataset.i], f=t.dataset.f;
+      o[f] = (f==='type')? t.value : (parseFloat(t.value)||0);
+      compute(); // don't re-render table (keep focus)
+      return;
+    }
+    if(['efFour','esSusp','barre'].indexOf(t.id)>=0){ compute(); return; }
+    if(['L','W','H','pw','ph','angle','marge','chuteMin','visM2','enduitMl','roomName'].indexOf(t.id)>=0){
+      renderWalls(); compute(); return;
+    }
+  });
+  document.addEventListener('change',function(e){
+    if(['ceil','pose','reuse','emMont'].indexOf(e.target.id)>=0){ compute(); }
+    if(e.target.dataset && e.target.dataset.f==='type'){ /* handled in input */ }
+  });
+  document.addEventListener('click',function(e){
+    var t=e.target;
+    if(t.id==='btnExport'){ exportProject(); return; }
+    if(t.id==='btnImport'){ $('fileImport').click(); return; }
+    if(t.dataset && t.dataset.add){
+      openings[t.dataset.add].push({type:'Fenêtre',w:1.05,h:1.25,d:0.50,al:1.00});
+      refresh(); return;
+    }
+    if(t.dataset && t.dataset.rm){
+      openings[t.dataset.rm].splice(+t.dataset.i,1);
+      refresh(); return;
+    }
+  });
+  $('fileImport').addEventListener('change',function(e){
+    var f=e.target.files && e.target.files[0];
+    if(f) importProject(f);
+    e.target.value=''; // permet de réimporter le même fichier
+  });
+
+  // init
+  refresh();
+})();
+</script>
+
+</body>
+</html>
