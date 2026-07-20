@@ -309,10 +309,11 @@
         </div>
 
         <div class="panel">
-          <h2>Calepinage du plafond rampant</h2>
+          <h2>Calepinage du plafond — versants &amp; Velux</h2>
           <div class="body">
             <div id="ceilingInfo" style="font-size:14px;color:var(--ink-soft);margin-bottom:12px"></div>
-            <div class="opts" id="ceilOpts"></div>
+            <div id="ceilInputs"></div>
+            <div id="ceilOpts"></div>
             <div class="note" id="ceilNote"></div>
           </div>
         </div>
@@ -371,6 +372,13 @@
     C:[{type:"Baie",    w:1.05,h:2.50,d:2.60,al:0.00},
        {type:"Porte",   w:0.83,h:2.04,d:6.00,al:0.00}],
     D:[]
+  };
+
+  // Velux par versant de toiture — x = distance depuis le pignon gauche (le long du faîtage),
+  // y = distance depuis l'égout (le long de la pente).
+  var velux = {
+    V1:[{w:0.78,h:1.40,x:2.00,y:0.90}],
+    V2:[]
   };
 
   function num(id){var v=parseFloat($(id).value);return isNaN(v)?0:v;}
@@ -494,6 +502,35 @@
     });
     $('walls').innerHTML=html;
   }
+
+  // tables de saisie des Velux par versant (séparées du dessin pour préserver le focus)
+  function renderVelux(){
+    var html='';
+    versants().forEach(function(v){
+      if(v.flat){ return; } // plafond horizontal : pas de Velux
+      var id=v.id, vx=velux[id]||[];
+      html+='<div class="wallblock" style="padding-top:12px">';
+      html+='<div class="wallhdr"><span class="name">'+v.label+'</span>'
+          +'<span class="dim">'+fmt(v.len)+' × '+fmt(v.slope)+' m (pente développée)</span>'
+          +'<span class="spacer"></span>'
+          +'<button class="btn mini sec" data-vadd="'+id+'">+ Velux</button></div>';
+      if(vx.length===0){ html+='<div class="empty">Aucun Velux sur ce versant.</div>'; }
+      else {
+        html+='<table class="op-table"><thead><tr><th>Larg. (m)</th><th>Haut. (m)</th><th>Dist. pignon G (m)</th><th>Dist. égout (m)</th><th></th></tr></thead><tbody>';
+        vx.forEach(function(o,idx){
+          html+='<tr>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.w+'" data-vk="'+id+'" data-vi="'+idx+'" data-vf="w"></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.h+'" data-vk="'+id+'" data-vi="'+idx+'" data-vf="h"></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.x+'" data-vk="'+id+'" data-vi="'+idx+'" data-vf="x"></td>'
+            +'<td class="w-n"><input type="number" step="0.01" value="'+o.y+'" data-vk="'+id+'" data-vi="'+idx+'" data-vf="y"></td>'
+            +'<td class="rm"><button class="lnk" data-vrm="'+id+'" data-vi="'+idx+'" title="Supprimer">✕</button></td></tr>';
+        });
+        html+='</tbody></table>';
+      }
+      html+='</div>';
+    });
+    $('ceilInputs').innerHTML=html;
+  }
   function opt(v,cur){return '<option'+(v===cur?' selected':'')+'>'+v+'</option>';}
 
   // ---------- ceiling ----------
@@ -519,41 +556,90 @@
     return {L:L,rampantSpan:rampantSpan,area:area,type:type,ang:ang,pw:pw,ph:ph,A:A,B:B};
   }
 
-  // ---------- ceiling tiler with shared chute reuse ----------
-  // rangées le long de rowLen, sur une largeur totalWidth ; plaque plen (long) × pwid (large)
-  function tileCeiling(rowLen, totalWidth, plen, pwid, stock, useReuse, chuteMin){
-    var EPS=1e-6, newP=0, reuse=0, rows=0, acc=0;
-    while(acc < totalWidth-EPS){
-      var rw=Math.min(pwid, totalWidth-acc), partial=rw<pwid-EPS; rows++;
-      var x=0;
-      while(x < rowLen-EPS){
-        var need=Math.min(plen, rowLen-x), cutLen=need<plen-EPS, isCut=cutLen||partial;
-        var source='new';
-        if(isCut && useReuse){
-          var best=-1, bestA=Infinity;
-          for(var s=0;s<stock.length;s++){
-            if(stock[s].w>=need-EPS && stock[s].h>=rw-EPS){
-              var a=stock[s].w*stock[s].h; if(a<bestA){bestA=a;best=s;}
-            }
-          }
-          if(best>=0){
-            source='reuse'; var cw=stock[best].w, ch=stock[best].h; stock.splice(best,1);
-            if(cw-need>chuteMin && rw>chuteMin) stock.push({w:cw-need,h:rw,from:'chute'});
-            if(ch-rw>chuteMin && need>chuteMin) stock.push({w:need,h:ch-rw,from:'chute'});
-          }
-        }
-        if(source==='new'){
-          newP++;
-          if(isCut){
-            if(plen-need>chuteMin && rw>chuteMin) stock.push({w:plen-need,h:rw,from:'coupe'});
-            if(pwid-rw>chuteMin && need>chuteMin) stock.push({w:need,h:pwid-rw,from:'coupe'});
-          }
-        } else reuse++;
-        x+=need;
+  // ---------- versants de toiture ----------
+  // Renvoie les plans de plafond : 1 rampant (monopente), 2 versants (double pente), 1 plan (horizontal).
+  function versants(){
+    var L=num('L'),W=num('W'),ang=num('angle'),type=$('ceil').value;
+    var c=Math.cos(ang*Math.PI/180); if(c<=0) c=1;
+    if(type==='horizontal') return [{id:'V1',label:'Plafond',len:L,slope:W,flat:true}];
+    if(type==='double'){ var s=(W/2)/c; return [{id:'V1',label:'Versant 1',len:L,slope:s},{id:'V2',label:'Versant 2',len:L,slope:s}]; }
+    var s=W/c; return [{id:'V1',label:'Rampant',len:L,slope:s}]; // monopente
+  }
+  function veluxPlane(id){ return (velux[id]||[]).map(function(o){return {x:o.x,y:o.y,w:o.w,h:o.h};}); }
+
+  // ---------- pavage 2D d'un plan avec découpe des ouvertures (Velux) ----------
+  // cellules cellLenL (le long de planeLen) × cellWW (le long de planeW) ; ops en coord {x,y,w,h}
+  function tileGrid(planeLen, planeW, cellLenL, cellWW, ops, stock, useReuse, chuteMin){
+    var EPS=1e-6, placements=[], newP=0, reuse=0, elim=0, cutout=0, cells=[], y=0;
+    while(y < planeW-EPS){
+      var ch=Math.min(cellWW, planeW-y), x=0;
+      while(x < planeLen-EPS){
+        var cw=Math.min(cellLenL, planeLen-x);
+        cells.push({x:x,y:y,w:cw,h:ch,isCut:(cw<cellLenL-EPS)||(ch<cellWW-EPS),removed:0,hasOpening:false});
+        x+=cw;
       }
-      acc+=rw;
+      y+=ch;
     }
-    return {newP:newP, reuse:reuse, rows:rows};
+    ops.forEach(function(o){ cells.forEach(function(c){
+      var ow=Math.min(c.x+c.w,o.x+o.w)-Math.max(c.x,o.x), oh=Math.min(c.y+c.h,o.y+o.h)-Math.max(c.y,o.y);
+      if(ow>EPS && oh>EPS){ c.removed+=ow*oh; c.hasOpening=true;
+        if(ow>chuteMin && oh>chuteMin) stock.push({w:ow,h:oh,from:'velux'}); }
+    });});
+    cells.forEach(function(c){
+      var area=c.w*c.h; if(c.hasOpening) cutout++;
+      if(c.removed>0 && (area-c.removed)<1e-3){ placements.push({x:c.x,y:c.y,w:c.w,h:c.h,source:'void'}); elim++; return; }
+      var source='new';
+      if(c.isCut && useReuse){
+        var best=-1, ba=Infinity;
+        for(var s=0;s<stock.length;s++){ if(stock[s].w>=c.w-EPS && stock[s].h>=c.h-EPS){ var a=stock[s].w*stock[s].h; if(a<ba){ba=a;best=s;} } }
+        if(best>=0){ source='reuse'; var cw=stock[best].w, chh=stock[best].h; stock.splice(best,1);
+          if(cw-c.w>chuteMin && c.h>chuteMin) stock.push({w:cw-c.w,h:c.h,from:'chute'});
+          if(chh-c.h>chuteMin && c.w>chuteMin) stock.push({w:c.w,h:chh-c.h,from:'chute'}); }
+      }
+      if(source==='new'){ newP++;
+        if(c.isCut){
+          if(cellLenL-c.w>chuteMin && c.h>chuteMin) stock.push({w:cellLenL-c.w,h:c.h,from:'coupe'});
+          if(cellWW-c.h>chuteMin && c.w>chuteMin) stock.push({w:c.w,h:cellWW-c.h,from:'coupe'});
+        }
+      } else reuse++;
+      placements.push({x:c.x,y:c.y,w:c.w,h:c.h,source:source,isCut:c.isCut,hasOpening:c.hasOpening});
+    });
+    return {newP:newP, reuse:reuse, elim:elim, cutout:cutout, placements:placements};
+  }
+
+  // ---------- dessin d'un versant à plat (faîtage en haut, égout en bas) ----------
+  function drawPlane(label, len, slope, placements, ops){
+    var PXW=680, mLeft=8, mRight=8, mTop=26, mBot=42;
+    var scale=PXW/len, wpx=len*scale, hpx=slope*scale, ox=mLeft, oy=mTop;
+    var W=wpx+mLeft+mRight, Hs=hpx+mTop+mBot, k=label.replace(/[^A-Za-z0-9]/g,'');
+    var s='<svg class="svg-lbl" width="'+W+'" height="'+Hs+'" viewBox="0 0 '+W+' '+Hs+'">';
+    s+='<defs><pattern id="hv'+k+'" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'
+      +'<rect width="7" height="7" fill="#ffffff"/><line x1="0" y1="0" x2="0" y2="7" stroke="#d8d8d8" stroke-width="1.4"/></pattern></defs>';
+    var n=0;
+    placements.forEach(function(p){
+      var px=ox+p.x*scale, py=oy+(slope-(p.y+p.h))*scale, ww=p.w*scale, hh=p.h*scale;
+      if(p.source==='void'){ s+='<rect x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" width="'+ww.toFixed(1)+'" height="'+hh.toFixed(1)+'" fill="none" stroke="#cccccc" stroke-width="1" stroke-dasharray="4 4"/>'; return; }
+      n++;
+      var fill=p.source==='reuse'?'var(--reuse-fill)':(p.isCut?'var(--cut-fill)':'var(--plaque-fill)');
+      var stroke=p.source==='reuse'?'var(--reuse-stroke)':(p.isCut?'var(--cut-stroke)':'var(--plaque-stroke)');
+      s+='<rect x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" width="'+ww.toFixed(1)+'" height="'+hh.toFixed(1)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1"/>';
+      if(ww>22 && hh>16){
+        s+='<text x="'+(px+ww/2).toFixed(1)+'" y="'+(py+hh/2-2).toFixed(1)+'" font-size="11" fill="#555" text-anchor="middle">'+n+'</text>';
+        s+='<text x="'+(px+ww/2).toFixed(1)+'" y="'+(py+hh/2+10).toFixed(1)+'" font-size="9" fill="#999" text-anchor="middle">'+fmt(p.w)+'×'+fmt(p.h)+'</text>';
+      }
+    });
+    ops.forEach(function(o){
+      var px=ox+o.x*scale, py=oy+(slope-(o.y+o.h))*scale, ww=o.w*scale, hh=o.h*scale;
+      s+='<rect x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'" width="'+ww.toFixed(1)+'" height="'+hh.toFixed(1)+'" fill="url(#hv'+k+')" stroke="var(--open-stroke)" stroke-width="1.4"/>';
+      s+='<text x="'+(px+ww/2).toFixed(1)+'" y="'+(py+hh/2-1).toFixed(1)+'" font-size="10" fill="#555" text-anchor="middle">Velux</text>';
+      s+='<text x="'+(px+ww/2).toFixed(1)+'" y="'+(py+hh/2+10).toFixed(1)+'" font-size="9" fill="#888" text-anchor="middle">'+fmt(o.w)+'×'+fmt(o.h)+'</text>';
+    });
+    s+='<text x="'+ox+'" y="'+(oy-10)+'" font-size="10.5" fill="#999">▲ Faîtage</text>';
+    s+='<line x1="'+ox+'" y1="'+(oy+hpx+10)+'" x2="'+(ox+wpx)+'" y2="'+(oy+hpx+10)+'" stroke="#bbb" stroke-width="1"/>';
+    s+='<text x="'+ox+'" y="'+(oy+hpx+26)+'" font-size="10.5" fill="#999">▼ Égout</text>';
+    s+='<text x="'+(ox+wpx/2)+'" y="'+(oy+hpx+26)+'" font-size="11.5" fill="#666" text-anchor="middle">'+label+' — '+fmt(len)+' × '+fmt(slope)+' m (pente développée)</text>';
+    s+='</svg>';
+    return s;
   }
 
   // ---------- main compute ----------
@@ -623,24 +709,36 @@
       jointLen += Math.max(0,solid-1)*H;
     });
 
-    // ceiling placement — évalue les 2 orientations sur une COPIE du stock, retient la meilleure,
-    // puis commet le placement retenu dans le stock partagé (réemploi mur↔plafond)
+    // ceiling placement — par versant, orientation imposée par la structure (plaques ⊥ fourrures ⊥ structure).
+    // Chevrons (dans la pente) → 'pente' ; Pannes (en travers) → 'travers' ; Dalle/libre → min matière.
     function cloneStock(st){return st.map(function(c){return {w:c.w,h:c.h,from:c.from};});}
-    var stA=cloneStock(stock), stB=cloneStock(stock);
-    var resA=tileCeiling(cd.L, cd.rampantSpan, ph, pw, stA, useReuse, chuteMin);
-    var resB=tileCeiling(cd.rampantSpan, cd.L, ph, pw, stB, useReuse, chuteMin);
-    // Orientation imposée par la structure : plaques ⊥ fourrures, fourrures ⊥ structure.
-    // Chevrons (dans la pente) → plaques dans la pente = Option B ; Pannes (en travers) → Option A ;
-    // Dalle/libre → optimisation matière libre.
-    var struct=$('struct').value;
-    var forced = struct==='chevrons' ? 'B' : (struct==='pannes' ? 'A' : null);
-    var best = forced || ((resA.newP < resB.newP) ? 'A' : (resB.newP < resA.newP ? 'B' : (cd.A.joints<=cd.B.joints?'A':'B')));
-    var chosen = best==='A'?resA:resB;
-    stock = best==='A'?stA:stB;                  // commit du placement retenu
-    var ceilPlaques = chosen.newP, ceilReuse = chosen.reuse;
-    var ceilJoints = cd[best].joints;
-    var optA={cols:cd.A.cols,rows:cd.A.rows,plaques:resA.newP,reuse:resA.reuse,joints:cd.A.joints,smallCuts:cd.A.smallCuts};
-    var optB={cols:cd.B.cols,rows:cd.B.rows,plaques:resB.newP,reuse:resB.reuse,joints:cd.B.joints,smallCuts:cd.B.smallCuts};
+    var struct=$('struct').value, vers=versants();
+    // orientation → dimensions de cellule : 'pente' = plaque length (ph) le long de la pente
+    function cellDims(o){ return o==='pente' ? {l:pw,w:ph} : {l:ph,w:pw}; }
+    function runCeiling(orient, stk){
+      var tot={plaques:0,reuse:0,elim:0,cutout:0,planes:[]}, cd2=cellDims(orient);
+      vers.forEach(function(v){
+        var res=tileGrid(v.len, v.slope, cd2.l, cd2.w, veluxPlane(v.id), stk, useReuse, chuteMin);
+        tot.plaques+=res.newP; tot.reuse+=res.reuse; tot.elim+=res.elim; tot.cutout+=res.cutout;
+        tot.planes.push({v:v,res:res,orient:orient});
+      });
+      return tot;
+    }
+    var forced = struct==='chevrons' ? 'pente' : (struct==='pannes' ? 'travers' : null);
+    var orient, ceil;
+    if(forced){ orient=forced; ceil=runCeiling(orient, stock); }
+    else {
+      var s1=cloneStock(stock), s2=cloneStock(stock);
+      var cp=runCeiling('pente', s1), ct=runCeiling('travers', s2);
+      if(cp.plaques<=ct.plaques){ orient='pente'; stock=s1; ceil=cp; } else { orient='travers'; stock=s2; ceil=ct; }
+    }
+    var ceilPlaques=ceil.plaques, ceilReuse=ceil.reuse, ceilElim=ceil.elim, ceilCutout=ceil.cutout, ceilPlanes=ceil.planes;
+    // joints plafond ≈ somme des bords internes de chaque versant
+    var ceilJoints=0;
+    ceilPlanes.forEach(function(pl){
+      var solid=pl.res.placements.filter(function(p){return p.source!=='void';});
+      ceilJoints += Math.max(0,solid.length-1) * ((pl.orient==='pente'?ph:pw)); // approximation
+    });
 
     // placement-based total plaques
     var placedTotal = wallNew + ceilPlaques;
@@ -672,25 +770,24 @@
     var montBars=Math.ceil(totMontCount/perBar);
     var railBars=Math.ceil(totRailMl/barre);
 
-    // --- plafond rampant : fourrures ⊥ structure, suspentes calées sur la structure ---
-    // Chevrons (dans la pente) → fourrures en travers, longueur L, suspentes ttes les <entraxe> le long de L.
-    // Pannes (en travers) → fourrures dans la pente, longueur span, suspentes le long du span.
-    // Dalle/libre → fourrures dans le sens de L, suspentes à l'entraxe suspentes paramétré.
-    var span=cd.rampantSpan, Lc=cd.L;
+    // --- plafond : fourrures ⊥ structure, suspentes calées sur la structure, sommées sur tous les versants ---
+    // Chevrons (dans la pente) → fourrures en travers (long. = len), suspentes le long de len.
+    // Pannes (en travers) → fourrures dans la pente (long. = slope), suspentes le long de slope.
+    // Dalle/libre → fourrures dans le sens de len, suspentes à l'entraxe suspentes paramétré.
     var structEnt=num('structEnt'); if(structEnt<=0) structEnt=0.60;
-    var fourLen, nFour, suspPerF, suspEnt, fourDir;
-    if(struct==='pannes'){
-      fourDir='dans la pente';   fourLen=span; nFour=Math.floor(Lc/efour)+1; suspEnt=structEnt; suspPerF=Math.floor(span/suspEnt)+1;
-    } else if(struct==='libre'){
-      fourDir='sens de la longueur'; fourLen=Lc; nFour=Math.floor(span/efour)+1; suspEnt=esusp; suspPerF=Math.floor(Lc/suspEnt)+1;
-    } else { // chevrons (défaut)
-      fourDir='en travers de la pente'; fourLen=Lc; nFour=Math.floor(span/efour)+1; suspEnt=structEnt; suspPerF=Math.floor(Lc/suspEnt)+1;
-    }
-    var fourMl=nFour*fourLen;
-    var suspCount=nFour*suspPerF;
-    var cornMl=2*(Lc+span);                                    // cornière périphérique
+    var fourDir = struct==='pannes' ? 'dans la pente' : (struct==='libre' ? 'sens de la longueur' : 'en travers de la pente');
+    var suspEnt = (struct==='libre') ? esusp : structEnt;
+    var nFour=0, fourMl=0, suspCount=0, cornMl=0, eclisses=0, fourLen=0;
+    vers.forEach(function(v){
+      var nF, fLen, suspPerF;
+      if(struct==='pannes'){ fLen=v.slope; nF=Math.floor(v.len/efour)+1; suspPerF=Math.floor(v.slope/suspEnt)+1; }
+      else { fLen=v.len;   nF=Math.floor(v.slope/efour)+1; suspPerF=Math.floor(v.len/suspEnt)+1; } // chevrons + libre
+      nFour+=nF; fourMl+=nF*fLen; suspCount+=nF*suspPerF; fourLen=fLen;
+      eclisses += nF*Math.max(0,Math.ceil(fLen/barre)-1);
+      cornMl += 2*(v.len+v.slope);
+    });
+    if($('ceil').value==='double') cornMl -= 2*num('L');       // faîtage partagé (pas de cornière de rive)
     var fourBars=Math.ceil(fourMl/barre);
-    var eclisses=nFour*Math.max(0,Math.ceil(fourLen/barre)-1); // raccords de fourrure
 
     // quant
     var vis=Math.round(totalMarge*visM2);
@@ -701,13 +798,14 @@
       brut:brut,surfOuv:surfOuv,net:net,ceilArea:ceilArea,totalNet:totalNet,
       marge:marge,totalMarge:totalMarge,estPlaques:estPlaques,
       wallResults:wallResults,wallNew:wallNew,wallReuse:wallReuse,wallElim:wallElim,cutoutCount:cutoutCount,jointLen:jointLen,
-      chutesLeft:chutesLeft,cd:cd,best:best,ceilPlaques:ceilPlaques,ceilReuse:ceilReuse,ceilJoints:ceilJoints,optA:optA,optB:optB,
+      chutesLeft:chutesLeft,cd:cd,ceilPlaques:ceilPlaques,ceilReuse:ceilReuse,ceilJoints:ceilJoints,
+      ceilPlanes:ceilPlanes,ceilElim:ceilElim,ceilCutout:ceilCutout,orient:orient,
       struct:struct,structEnt:structEnt,forced:forced,fourDir:fourDir,suspEnt:suspEnt,fourLen:fourLen,
       placedTotal:placedTotal,totalJoints:totalJoints,chuteSurf:chuteSurf,vis:vis,enduit:enduit,
       emont:emont,efour:efour,esusp:esusp,barre:barre,nOuv:nOuv,
       railMl:railMl,montCount:montCount,renfMontCount:renfMontCount,renfRailMl:renfRailMl,
       totMontCount:totMontCount,totMontMl:totMontMl,totRailMl:totRailMl,montBars:montBars,railBars:railBars,
-      span:span,nFour:nFour,fourMl:fourMl,suspCount:suspCount,cornMl:cornMl,fourBars:fourBars,eclisses:eclisses
+      nFour:nFour,fourMl:fourMl,suspCount:suspCount,cornMl:cornMl,fourBars:fourBars,eclisses:eclisses
     });
   }
 
@@ -740,22 +838,35 @@
     });
     $('elevations').innerHTML=eh;
 
-    // ceiling
-    var cd=r.cd;
-    $('ceilingInfo').innerHTML='Pente sur la largeur — longueur réelle du rampant : <b>'+fmt(cd.rampantSpan)
-      +' m</b> ('+fmt(cd.L)+' × '+fmt(cd.rampantSpan)+' m = <b>'+fmt(cd.area)+' m²</b>), plaques '+fmt(cd.ph)+'×'+fmt(cd.pw)+' m.';
-    $('ceilOpts').innerHTML=
-      ceilOpt('A','Plaques en travers de la pente ('+fmt(cd.L)+' m)',r.optA,r.best==='A',r.forced==='A')+
-      ceilOpt('B','Plaques dans le sens de la pente (rampant)',r.optB,r.best==='B',r.forced==='B');
+    // ceiling — versants + Velux
+    var cd=r.cd, typeLbl={horizontal:'Plafond horizontal',monopente:'Monopente',double:'Double pente'}[$('ceil').value];
+    var orientTxt = r.orient==='pente' ? 'plaques dans la pente' : 'plaques en travers de la pente';
+    $('ceilingInfo').innerHTML=typeLbl+' — <b>'+r.ceilPlanes.length+' versant'+(r.ceilPlanes.length>1?'s':'')+'</b>, '
+      +orientTxt+' · surface totale <b>'+fmt(cd.area)+' m²</b> · <b>'+r.ceilPlaques+' plaques neuves</b> + '+r.ceilReuse+' réemplois'
+      +(r.ceilElim?', '+r.ceilElim+' supprimée(s) par Velux':'')+'.';
+
+    var ph2='';
+    r.ceilPlanes.forEach(function(pl){
+      var v=pl.v, res=pl.res, id=v.id;
+      var nNew=res.placements.filter(function(p){return p.source==='new';}).length;
+      var nRe=res.placements.filter(function(p){return p.source==='reuse';}).length;
+      ph2+='<div class="wallblock">';
+      ph2+=drawPlane(v.label, v.len, v.slope, res.placements, veluxPlane(id));
+      ph2+='<div class="metaline"><span>Neuves : <b>'+nNew+'</b></span>'
+        +'<span class="badge-reuse">Chutes réutilisées : <b>'+nRe+'</b></span>'
+        +'<span>Cellules percées Velux : <b>'+res.cutout+'</b></span>'
+        +(res.elim?'<span>Supprimées : <b>'+res.elim+'</b></span>':'')+'</div>';
+      ph2+='</div>';
+    });
+    $('ceilOpts').innerHTML=ph2;
+
     var structTxt={chevrons:'Chevrons dans la pente (entraxe '+fmt(r.structEnt)+' m)',pannes:'Pannes en travers (entraxe '+fmt(r.structEnt)+' m)',libre:'Dalle / libre'}[r.struct];
     if(r.forced){
-      $('ceilNote').innerHTML='<b>Orientation imposée par la structure</b> — '+structTxt+' : suspentes sur la structure, '
-        +'fourrures '+r.fourDir+', plaques '+(r.forced==='B'?'dans la pente':'en travers')+'. '
-        +'Option retenue : <b>Option '+r.best+'</b> — '+r.ceilPlaques+' plaques neuves + '+r.ceilReuse+' réemplois. '
-        +'(L\'autre orientation reste affichée à titre de comparaison matière, mais n\'est pas conforme à cette structure.)';
+      $('ceilNote').innerHTML='<b>Orientation imposée par la structure</b> — '+structTxt+' : suspentes calées sur la structure, '
+        +'fourrures '+r.fourDir+', '+orientTxt+'. Les Velux sont découpés dans les plaques (morceaux récupérés dans le stock partagé).';
     } else {
-      $('ceilNote').innerHTML='Structure libre (dalle / double ossature) : orientation optimisée matière. '
-        +'Option retenue : <b>Option '+r.best+'</b> — <b>'+r.ceilPlaques+' plaques neuves</b> + '+r.ceilReuse+' réemplois.';
+      $('ceilNote').innerHTML='Structure libre : orientation optimisée matière ('+orientTxt+'). '
+        +'Les Velux sont découpés dans les plaques ; les morceaux réutilisables repartent dans le stock partagé.';
     }
 
     // ossature — murs
@@ -831,9 +942,10 @@
   // ---------- export / import projet ----------
   var STATE_FIELDS=['roomName','L','W','H','ceil','angle','struct','structEnt','pw','ph','pose','marge','chuteMin','visM2','enduitMl','emMont','efFour','esSusp','barre'];
   function gatherState(){
-    var st={_format:'herculepro-calepinage', _version:1, savedAt:new Date().toISOString(), fields:{}, reuse:$('reuse').checked, openings:{}};
+    var st={_format:'herculepro-calepinage', _version:1, savedAt:new Date().toISOString(), fields:{}, reuse:$('reuse').checked, openings:{}, velux:{}};
     STATE_FIELDS.forEach(function(id){ st.fields[id]=$(id).value; });
     WALL_KEYS.forEach(function(k){ st.openings[k]=openings[k].map(function(o){return {type:o.type,w:o.w,h:o.h,d:o.d,al:o.al};}); });
+    ['V1','V2'].forEach(function(k){ st.velux[k]=(velux[k]||[]).map(function(o){return {w:o.w,h:o.h,x:o.x,y:o.y};}); });
     return st;
   }
   function slug(s){return (s||'projet').toString().trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'projet';}
@@ -861,6 +973,10 @@
         w:+o.w||0, h:+o.h||0, d:+o.d||0, al:+o.al||0
       };});
     });
+    ['V1','V2'].forEach(function(k){
+      var arr=(st.velux && st.velux[k])||[];
+      velux[k]=arr.map(function(o){return {w:+o.w||0, h:+o.h||0, x:+o.x||0, y:+o.y||0};});
+    });
     refresh();
   }
   function importProject(file){
@@ -874,7 +990,7 @@
   }
 
   // ---------- events ----------
-  function refresh(){ renderWalls(); compute(); }
+  function refresh(){ renderWalls(); renderVelux(); compute(); }
 
   document.addEventListener('input',function(e){
     var t=e.target;
@@ -884,13 +1000,20 @@
       compute(); // don't re-render table (keep focus)
       return;
     }
+    if(t.dataset && t.dataset.vk){
+      var vo=velux[t.dataset.vk][+t.dataset.vi];
+      vo[t.dataset.vf] = parseFloat(t.value)||0;
+      compute(); // ne pas re-render la table Velux (garder le focus)
+      return;
+    }
     if(['efFour','esSusp','barre','structEnt'].indexOf(t.id)>=0){ compute(); return; }
     if(['L','W','H','pw','ph','angle','marge','chuteMin','visM2','enduitMl','roomName'].indexOf(t.id)>=0){
       renderWalls(); compute(); return;
     }
   });
   document.addEventListener('change',function(e){
-    if(['ceil','pose','reuse','emMont','struct'].indexOf(e.target.id)>=0){ compute(); }
+    if(e.target.id==='ceil'){ renderVelux(); compute(); return; }   // le type de plafond change les versants
+    if(['pose','reuse','emMont','struct'].indexOf(e.target.id)>=0){ compute(); }
     if(e.target.dataset && e.target.dataset.f==='type'){ /* handled in input */ }
   });
   document.addEventListener('click',function(e){
@@ -904,6 +1027,14 @@
     if(t.dataset && t.dataset.rm){
       openings[t.dataset.rm].splice(+t.dataset.i,1);
       refresh(); return;
+    }
+    if(t.dataset && t.dataset.vadd){
+      (velux[t.dataset.vadd]=velux[t.dataset.vadd]||[]).push({w:0.78,h:1.40,x:1.00,y:0.90});
+      renderVelux(); compute(); return;
+    }
+    if(t.dataset && t.dataset.vrm){
+      velux[t.dataset.vrm].splice(+t.dataset.vi,1);
+      renderVelux(); compute(); return;
     }
   });
   $('fileImport').addEventListener('change',function(e){
