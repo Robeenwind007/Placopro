@@ -44,13 +44,17 @@
     display:flex;align-items:center;
     padding:0 22px;gap:14px;
   }
-  .topbar h1{font-size:24px;font-weight:200;margin:0;letter-spacing:.2px}
+  .topbar h1{font-size:24px;font-weight:300;margin:0;letter-spacing:.2px;white-space:nowrap}
+  .topbar h1 b{font-weight:600}
+  .topbar .tagline{font-size:14px;font-weight:300;opacity:.85;margin-left:2px}
   .topbar .tag{
     font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:1px;
     background:rgba(255,255,255,.18);padding:3px 9px;border-radius:50px;
   }
   .topbar .spacer{flex:1}
   .topbar .who{font-size:13px;opacity:.9}
+  .topbar .ver{font-size:11px;opacity:.85;background:rgba(255,255,255,.16);padding:3px 9px;border-radius:50px;letter-spacing:.3px;font-variant-numeric:tabular-nums}
+  @media(max-width:620px){.topbar .tagline{display:none}}
 
   .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 60px}
   .layout{display:grid;grid-template-columns:320px 1fr;gap:22px;align-items:start}
@@ -169,8 +173,9 @@
 <body>
 <div id="app">
   <div class="topbar">
-    <h1>Calepinage placo</h1>
+    <h1><b>PlacoPro</b><span class="tagline">— Le calepinage des pros du placo</span></h1>
     <span class="spacer"></span>
+    <span class="ver" id="ver"></span>
     <button class="btn top sec" id="btnImport" title="Charger un projet .json">⭱ Importer</button>
     <button class="btn top" id="btnExport" title="Enregistrer le projet en .json">⭳ Exporter</button>
     <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
@@ -362,6 +367,7 @@
 <script>
 (function(){
   "use strict";
+  var APP_VERSION='1.0.0'; // @version — incrémenté automatiquement par le hook git pre-commit
   var $ = function(id){return document.getElementById(id);};
   var WALL_KEYS = ["A","B","C","D"];
 
@@ -1045,6 +1051,7 @@
   });
 
   // init
+  $('ver').textContent='v'+APP_VERSION;
   refresh();
 })();
 </script>
