@@ -168,9 +168,61 @@
   .params .row3{margin-top:9px}
   .badge-cut{color:var(--brand)}
   .badge-reuse{color:var(--good)}
+
+  /* ---------- splash d'accueil ---------- */
+  #splash{
+    position:fixed;inset:0;z-index:1000;
+    background:radial-gradient(120% 120% at 50% 30%, #c94b3a 0%, #bc4333 45%, #9d3628 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+    color:#fff;cursor:pointer;transition:opacity .55s ease;
+    animation:spGone .6s ease 3s forwards;   /* filet de sécurité si JS désactivé */
+  }
+  #splash.hide{opacity:0;pointer-events:none}
+  @keyframes spGone{to{opacity:0;visibility:hidden;pointer-events:none}}
+  .sp-logo{
+    width:96px;height:96px;background:#fff;border-radius:18px;padding:12px;
+    display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:7px;
+    box-shadow:0 16px 44px rgba(0,0,0,.28);
+    opacity:0;transform:translateY(6px) scale(.96);animation:spIn .5s ease .05s forwards;
+  }
+  .sp-logo span{background:var(--brand);border-radius:5px;opacity:0;transform:scale(.4);animation:spTile .5s cubic-bezier(.2,.8,.2,1) forwards}
+  .sp-logo span:nth-child(1){animation-delay:.30s}
+  .sp-logo span:nth-child(2){animation-delay:.42s}
+  .sp-logo span:nth-child(3){animation-delay:.54s}
+  .sp-logo span:nth-child(4){animation-delay:.66s}
+  .sp-name{font-size:34px;font-weight:600;letter-spacing:.4px;opacity:0;animation:spUp .6s ease .8s forwards}
+  .sp-tag{font-size:15px;font-weight:300;opacity:0;animation:spUp .6s ease .98s forwards;text-align:center;padding:0 20px}
+  .sp-bar{width:130px;height:3px;background:rgba(255,255,255,.28);border-radius:3px;overflow:hidden;opacity:0;animation:spUp .5s ease 1.15s forwards}
+  .sp-bar i{display:block;height:100%;width:38%;background:#fff;border-radius:3px;animation:spLoad 1.15s ease-in-out 1.15s infinite}
+  .sp-skip{position:absolute;bottom:22px;font-size:12px;opacity:0;color:rgba(255,255,255,.7);animation:spUp .6s ease 1.6s forwards}
+  @keyframes spIn{to{opacity:1;transform:none}}
+  @keyframes spTile{to{opacity:1;transform:scale(1)}}
+  @keyframes spUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes spLoad{0%{transform:translateX(-140%)}100%{transform:translateX(360%)}}
+  @media(prefers-reduced-motion:reduce){
+    #splash *{animation:none!important;opacity:1!important;transform:none!important}
+    .sp-bar{display:none}
+  }
 </style>
 </head>
 <body>
+<div id="splash" role="status" aria-label="Chargement de PlacoPro">
+  <div class="sp-logo"><span></span><span></span><span></span><span></span></div>
+  <div class="sp-name">PlacoPro</div>
+  <div class="sp-tag">Le calepinage des pros du placo</div>
+  <div class="sp-bar"><i></i></div>
+  <div class="sp-skip">cliquer pour passer</div>
+</div>
+<script>
+(function(){
+  var s=document.getElementById('splash'); if(!s) return;
+  var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var delay=reduce?600:2100;
+  function hide(){ if(s._done) return; s._done=1; s.classList.add('hide'); setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); },600); }
+  var t=setTimeout(hide, delay);
+  s.addEventListener('click',function(){ clearTimeout(t); hide(); });
+})();
+</script>
 <div id="app">
   <div class="topbar">
     <h1><b>PlacoPro</b><span class="tagline">— Le calepinage des pros du placo</span></h1>
