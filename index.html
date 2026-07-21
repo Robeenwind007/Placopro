@@ -203,6 +203,26 @@
     #splash *{animation:none!important;opacity:1!important;transform:none!important}
     .sp-bar{display:none}
   }
+
+  /* ---------- modale (enregistrement) ---------- */
+  .modal-back{position:fixed;inset:0;z-index:1200;background:rgba(40,28,26,.46);
+    display:flex;align-items:center;justify-content:center;padding:20px;animation:mFade .16s ease}
+  .modal-back[hidden]{display:none}
+  .modal{background:#fff;width:100%;max-width:430px;border-radius:10px;
+    box-shadow:0 22px 60px rgba(0,0,0,.32);padding:22px 22px 18px;animation:mPop .2s ease}
+  .modal h3{margin:0 0 6px;font-size:18px;font-weight:400;color:var(--ink)}
+  .modal p{margin:0 0 15px;font-size:13px;color:var(--ink-soft)}
+  .modal-field{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--input)}
+  .modal-field:focus-within{border-color:var(--brand)}
+  .modal-field input{border:none;background:transparent;flex:1;min-width:0;padding:9px 10px;
+    font-family:inherit;font-weight:300;font-size:14px;color:var(--ink)}
+  .modal-field input:focus{outline:none}
+  .modal-field .suffix{display:flex;align-items:center;padding:0 11px;background:#ececec;
+    color:var(--ink-soft);font-size:13px;font-variant-numeric:tabular-nums}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+  @keyframes mFade{from{opacity:0}to{opacity:1}}
+  @keyframes mPop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.modal-back,.modal{animation:none}}
 </style>
 </head>
 <body>
@@ -416,6 +436,21 @@
         <div class="foot">PlacoPro — un logiciel gratuit de calepinage par HerculePro · <a href="https://www.herculepro.com" target="_blank" rel="noopener">www.herculepro.com</a> · © HerculePro 2026 (OBE) tous droits réservés</div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<div id="saveModal" class="modal-back" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
+    <h3 id="saveTitle">Enregistrer le projet</h3>
+    <p>Choisissez le nom du fichier à télécharger.</p>
+    <div class="modal-field">
+      <input id="saveName" type="text" spellcheck="false" autocomplete="off">
+      <span class="suffix">.json</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="saveCancel" type="button">Annuler</button>
+      <button class="btn" id="saveOk" type="button">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1022,11 +1057,8 @@
   function slug(s){return (s||'projet').toString().trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'projet';}
   function toast(msg){var el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove('show');},2600);}
 
-  function exportProject(){
-    var def='calepinage-'+slug($('roomName').value)+'-'+new Date().toISOString().slice(0,10);
-    var name=window.prompt('Nom du fichier à enregistrer :', def);
-    if(name===null) return;                       // annulé par l'utilisateur
-    name=name.trim() || def;
+  function defaultFileName(){ return 'calepinage-'+slug($('roomName').value)+'-'+new Date().toISOString().slice(0,10); }
+  function downloadJSON(name){
     if(!/\.json$/i.test(name)) name+='.json';
     var data=JSON.stringify(gatherState(),null,2);
     var blob=new Blob([data],{type:'application/json'});
@@ -1037,6 +1069,19 @@
     setTimeout(function(){URL.revokeObjectURL(url);},1000);
     toast('Projet exporté : '+name);
   }
+  // ---------- modale d'enregistrement ----------
+  function openSaveModal(){
+    var inp=$('saveName'); inp.value=defaultFileName().replace(/\.json$/i,'');
+    $('saveModal').hidden=false;
+    setTimeout(function(){ inp.focus(); inp.select(); },20);
+  }
+  function closeSaveModal(){ $('saveModal').hidden=true; }
+  function confirmSave(){
+    var name=($('saveName').value||'').trim().replace(/\.json$/i,'') || defaultFileName();
+    closeSaveModal();
+    downloadJSON(name);
+  }
+  function exportProject(){ openSaveModal(); }
 
   function applyState(st){
     if(!st || st._format!=='herculepro-calepinage') throw new Error('format');
@@ -1097,6 +1142,8 @@
     var t=e.target;
     if(t.id==='btnExport'){ exportProject(); return; }
     if(t.id==='btnImport'){ $('fileImport').click(); return; }
+    if(t.id==='saveOk'){ confirmSave(); return; }
+    if(t.id==='saveCancel' || t.id==='saveModal'){ closeSaveModal(); return; } // bouton ou clic sur le fond
     if(t.dataset && t.dataset.add){
       openings[t.dataset.add].push({type:'Fenêtre',w:1.05,h:1.25,d:0.50,al:1.00});
       refresh(); return;
@@ -1118,6 +1165,11 @@
     var f=e.target.files && e.target.files[0];
     if(f) importProject(f);
     e.target.value=''; // permet de réimporter le même fichier
+  });
+  document.addEventListener('keydown',function(e){
+    if($('saveModal').hidden) return;
+    if(e.key==='Enter'){ e.preventDefault(); confirmSave(); }
+    else if(e.key==='Escape'){ e.preventDefault(); closeSaveModal(); }
   });
 
   // init
